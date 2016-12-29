@@ -41,6 +41,7 @@ setup(
     keywords='lsst',
     packages=find_packages(exclude=['docs', 'tests*']),
     install_requires=[
+        'bitly-oauth2-proxy-session==0.1.4',
         'sqre-apikit==0.0.10'
     ],
     tests_require=['pytest'],

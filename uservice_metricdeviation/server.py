@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 """Retrieve QA metrics and report deviation"""
 import json
-import requests
 from apikit import APIFlask as apf
 from apikit import BackendError
 from flask import jsonify, request
+from BitlyOAuth2ProxySession import Session
 
 
 def server(run_standalone=False):
@@ -40,6 +40,8 @@ def server(run_standalone=False):
         Basic Authentication headers, which will be used to get a GitHub
         Oauth2 token.
         """
+        if threshold is None:
+            threshold = 0.0
         inboundauth = None
         if request.authorization is not None:
             inboundauth = request.authorization
@@ -56,7 +58,7 @@ def server(run_standalone=False):
         params = {"job__ci_dataset": "cfht",
                   "metric": metric,
                   "page": "last"}
-        resp = session.get(url, params)
+        resp = session.get(url, params=params)
         if resp.status_code == 403:
             # Try to reauth
             _reauth(app, inboundauth.username, inboundauth.password)
@@ -82,8 +84,12 @@ def server(run_standalone=False):
 
 def _reauth(app, username, password):
     """Get a session with authentication data"""
-    session = requests.Session()
-    session.auth = (username, password)
+    oaep = app.config["AUTH"]["data"]["endpoint"]
+    session = Session.Session(oauth2_username=username,
+                              oauth2_password=password,
+                              authentication_session_url=None,
+                              authentication_base_url=oaep)
+    session.authenticate()
     app.config["SESSION"] = session
 
 
@@ -96,23 +102,29 @@ def _interpret_response(inbound, threshold):
         raise BackendError(reason="Could not decode JSON result",
                            status_code=500,
                            content=str(exc) + ":\n" + inbound)
-    results = robj.results
+    results = robj["results"]
     retdict = {"changed": False}
-    if len(results < 2):
+    if len(results) < 2:
         # No previous data to compare to!
         return jsonify(retdict)
     prev = results[-2]
     curr = results[-1]
-    if prev.value != curr.value:
-        if prev.value:
-            if (100.0 * (curr.value + 0.0) / (prev.value + 0.0)) > tval:
+    pval = prev["value"]
+    cval = curr["value"]
+    if pval != cval:
+        if pval:
+            delta_pct = abs(100.0 * ((cval + 0.0) - (pval + 0.0)) /
+                            (pval + 0.0))
+            if delta_pct > tval:
                 retdict["changed"] = True
-                retdict["current"] = curr.value
-                retdict["previous"] = prev.value
+                retdict["current"] = cval
+                retdict["previous"] = pval
                 retdict["changecount"] = 0
-                if curr.changed_packages:
-                    retdict["changed"] = curr.changed_packages
-                    retdict["changecount"] = len(curr.changed_packages)
+                retdict["delta_pct"] = delta_pct
+                ccp = curr["changed_packages"]
+                if ccp:
+                    retdict["changed_packages"] = ccp
+                    retdict["changecount"] = len(ccp)
     return jsonify(retdict)
 
 
