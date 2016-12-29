@@ -1,0 +1,19 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: api-lsst-codes
+spec:
+  tls:
+  - secretName: ssl-proxy-secret
+  backend:
+    serviceName: default-handler
+    servicePort: 80
+  rules:
+  - host: api.lsst.codes
+    http:
+      paths:
+      - path: /metricdeviation/* # One path per service, and the service needs
+        backend:                 #  to recognize the path (no rewriting).
+          serviceName: u-metricdev
+          servicePort: 5000
+          
