@@ -12,7 +12,7 @@ def server(run_standalone=False):
     # Add "/metric_deviation" for mapping behind api.lsst.codes
     hosturi = "https://squash.lsst.codes"
     app = apf(name="uservice-metricdeviation",
-              version="0.0.1",
+              version="0.0.2",
               repository="https://github.com/sqre-lsst/" +
               "sqre-uservice-metricdeviation",
               description="API wrapper for QA Metric Deviation",
@@ -65,7 +65,13 @@ def server(run_standalone=False):
             session = app.config["SESSION"]
             resp = session.get(url, params)
         if resp.status_code == 200:
-            return _interpret_response(resp.text, threshold)
+            retval = _interpret_response(resp.text, threshold)
+            if retval["changed"]:
+                url = hosturi + "/metrics"
+                url += "?window=weeks&job__ci_dataset-cfht"
+                url += "&metric=" + metric
+                retval["url"] = url
+            return jsonify(retval)
         else:
             raise BackendError(reason=resp.reason,
                                status_code=resp.status_code,
@@ -93,6 +99,12 @@ def _reauth(app, username, password):
     app.config["SESSION"] = session
 
 
+def _round(num, precision):
+    """Round a number to a float with specified precision"""
+    fstr = "{0:%df}" % precision
+    return float(fstr.format(num))
+
+
 def _interpret_response(inbound, threshold):
     """Decide whether there's a reportable deviation"""
     tval = float(threshold)
@@ -106,26 +118,31 @@ def _interpret_response(inbound, threshold):
     retdict = {"changed": False}
     if len(results) < 2:
         # No previous data to compare to!
-        return jsonify(retdict)
+        return retdict
     prev = results[-2]
     curr = results[-1]
+    units = ""
+    if "units" in curr:
+        units = curr["units"]
     pval = prev["value"]
+    pval = _round(pval, 3)
     cval = curr["value"]
+    cval = _round(cval, 3)
     if pval != cval:
         if pval:
-            delta_pct = abs(100.0 * ((cval + 0.0) - (pval + 0.0)) /
-                            (pval + 0.0))
+            delta_pct = _round(abs(100.0 * (cval - pval) / pval), 2)
             if delta_pct > tval:
                 retdict["changed"] = True
                 retdict["current"] = cval
                 retdict["previous"] = pval
                 retdict["changecount"] = 0
                 retdict["delta_pct"] = delta_pct
+                retdict["units"] = units
                 ccp = curr["changed_packages"]
                 if ccp:
                     retdict["changed_packages"] = ccp
                     retdict["changecount"] = len(ccp)
-    return jsonify(retdict)
+    return retdict
 
 
 def standalone():

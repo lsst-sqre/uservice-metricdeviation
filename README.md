@@ -1,6 +1,6 @@
 [![Build Status](https://travis-ci.org/lsst-sqre/sqre-apikit.svg?branch=master)](https://travis-ci.org/lsst-sqre/sqre-apikit)
 
-# sqre-uservice-status
+# sqre-uservice-metricdeviation
 
 LSST DM SQuaRE microservice wrapper for QA metrics; more
 generally, a minimal viable example for how to use the `apikit`
