@@ -101,7 +101,7 @@ def _reauth(app, username, password):
 
 def _round(num, precision):
     """Round a number to a float with specified precision"""
-    fstr = "{0:%df}" % precision
+    fstr = "{0:.%df}" % precision
     return float(fstr.format(num))
 
 
