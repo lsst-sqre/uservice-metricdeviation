@@ -1,6 +1,6 @@
 FROM       centos:7
 MAINTAINER sqre-admin
-LABEL      version="0.0.3" description="LSST DM/SQuaRE metrics microservice" \
+LABEL      version="0.0.5" description="LSST DM/SQuaRE metrics microservice" \
            name="lsstsqre/uservice-metricdeviation"
 
 USER       root

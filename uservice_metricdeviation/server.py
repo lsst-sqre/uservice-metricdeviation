@@ -11,8 +11,9 @@ def server(run_standalone=False):
     """Create the app and then run it."""
     # Add "/metric_deviation" for mapping behind api.lsst.codes
     hosturi = "https://squash.lsst.codes"
+    uiuri = "https://bokeh.lsst.codes"
     app = apf(name="uservice-metricdeviation",
-              version="0.0.2",
+              version="0.0.5",
               repository="https://github.com/sqre-lsst/" +
               "sqre-uservice-metricdeviation",
               description="API wrapper for QA Metric Deviation",
@@ -67,7 +68,7 @@ def server(run_standalone=False):
         if resp.status_code == 200:
             retval = _interpret_response(resp.text, threshold)
             if retval["changed"]:
-                url = hosturi + "/metrics"
+                url = uiuri + "/metrics"
                 url += "?window=weeks&job__ci_dataset-cfht"
                 url += "&metric=" + metric
                 retval["url"] = url
