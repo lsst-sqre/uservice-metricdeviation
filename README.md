@@ -2,23 +2,31 @@
 
 # sqre-uservice-metricdeviation
 
-LSST DM SQuaRE microservice wrapper for QA metrics; more
-generally, a minimal viable example for how to use the `apikit`
-interfaces to create a SQuaRE-compliant microservice.
+LSST DM SQuaRE microservice wrapper for QA metrics.
 
 ## Usage
 
-Create a Flask app (preferably using :class:`apikit.APIFlask`).  If you
-have used `APIFlask`, it will already have a metadata route (but if you
-are using Kubernetes ingress, you will want to specify the additional
-route behind api.lsst.codes (or wherever) as one of the arguments to
-route.
+`GET /metricdeviation/<metric>/<threshold>`
 
-Hook your app up with whatever authenticator to Github it needs (if
-any), and whatever secrets the authenticator requires.
+* Metric is one of the metrics we know about (AM1, AM2, PA1).  Threshold
+  is a floating point number indicating the percentage change since the
+  last run we want to be notified about.
 
-If you're planning on hosting in a container via Kubernetes, create a
-service and a deployment for it (look in `kubernetes`), and then if you
-are standing up the front end too, set up an ingress with TLS
-certificate and key.  If one already exists (e.g. `api.lsst.codes`) you
-just need to add a path to the existing ingress.
+`GET /metricdeviation/<metric>`
+
+* Same as above with a threshold of 0.0.
+
+## Return
+
+You will get a JSON object back, with at least the field "changed".
+That will be "true" or "false".  If changed is true, the following
+fields will be set.
+
+* "current"          : current metric value
+* "previous"         : previous metric value
+* "delta_pct"        : absolute value of change as percentage of value
+* "units"            : units of metric
+* "changecount"      : number of packages changed between current and
+  previous run
+* "changed_packages" : list of packages changed between current and
+  previous run
