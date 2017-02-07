@@ -1,19 +1,25 @@
 FROM       centos:7
 MAINTAINER sqre-admin
-LABEL      version="0.0.5" description="LSST DM/SQuaRE metrics microservice" \
+LABEL      description="LSST squash QA metrics deviation service" \
            name="lsstsqre/uservice-metricdeviation"
 
 USER       root
-RUN        yum update -y && \
-           yum install -y epel-release && \
-           yum repolist && \
-           yum install -y git python-pip python-devel && \
-	   pip install --upgrade pip && \
-           pip install requests sqre-uservice-metricdeviation && \
-           useradd -d /home/flasker -m flasker
+RUN        yum install -y epel-release
+RUN        yum repolist
+RUN        yum install -y git python-pip python-devel
+RUN        yum install -y gcc openssl-devel
+RUN        pip install --upgrade pip
+RUN        useradd -d /home/uwsgi -m uwsgi
+RUN        mkdir /dist
 
-USER flasker
-WORKDIR /home/flasker
-EXPOSE 5000
-CMD sqre-uservice-metricdeviation
-	   
+# Must run python setup.py sdist first.
+ARG        VERSION="0.0.6"
+LABEL      version="$VERSION"
+COPY       dist/sqre-uservice-metricdeviation-$VERSION.tar.gz /dist
+RUN        pip install /dist/sqre-uservice-metricdeviation-$VERSION.tar.gz
+
+USER       uwsgi
+WORKDIR    /home/uwsgi
+COPY       uwsgi.ini .
+EXPOSE     5000
+CMD        [ "uwsgi", "-T", "uwsgi.ini" ]

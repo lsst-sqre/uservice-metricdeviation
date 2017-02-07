@@ -13,7 +13,7 @@ def server(run_standalone=False):
     hosturi = "https://squash.lsst.codes"
     uiuri = "https://bokeh.lsst.codes"
     app = apf(name="uservice-metricdeviation",
-              version="0.0.5",
+              version="0.0.6",
               repository="https://github.com/sqre-lsst/" +
               "sqre-uservice-metricdeviation",
               description="API wrapper for QA Metric Deviation",
@@ -87,6 +87,8 @@ def server(run_standalone=False):
         return response
     if run_standalone:
         app.run(host='0.0.0.0', threaded=True)
+    # Return app for uwsgi
+    return app
 
 
 def _reauth(app, username, password):
