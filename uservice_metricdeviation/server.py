@@ -13,7 +13,7 @@ def server(run_standalone=False):
     hosturi = "https://squash.lsst.codes"
     uiuri = "https://bokeh.lsst.codes"
     app = apf(name="uservice-metricdeviation",
-              version="0.0.6",
+              version="0.0.7",
               repository="https://github.com/sqre-lsst/" +
               "sqre-uservice-metricdeviation",
               description="API wrapper for QA Metric Deviation",
@@ -69,7 +69,7 @@ def server(run_standalone=False):
             retval = _interpret_response(resp.text, threshold)
             if retval["changed"]:
                 url = uiuri + "/metrics"
-                url += "?window=weeks&job__ci_dataset-cfht"
+                url += "?window=weeks&job__ci_dataset=cfht"
                 url += "&metric=" + metric
                 retval["url"] = url
             return jsonify(retval)
