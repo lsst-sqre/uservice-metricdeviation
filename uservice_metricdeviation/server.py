@@ -11,9 +11,9 @@ def server(run_standalone=False):
     """Create the app and then run it."""
     # Add "/metric_deviation" for mapping behind api.lsst.codes
     hosturi = "https://squash.lsst.codes"
-    uiuri = "https://bokeh.lsst.codes"
+    uiuri = hosturi
     app = apf(name="uservice-metricdeviation",
-              version="0.0.7",
+              version="0.0.8",
               repository="https://github.com/sqre-lsst/" +
               "sqre-uservice-metricdeviation",
               description="API wrapper for QA Metric Deviation",
@@ -55,7 +55,8 @@ def server(run_standalone=False):
             raise BackendError(reason="Unauthorized", status_code=403,
                                content="No authorization provided.")
         session = app.config["SESSION"]
-        url = hosturi + "/dashboard/api/measurements/"
+        #url = hosturi + "/dashboard/api/measurements/"
+        url = hosturi + "/dashboard/regression/"
         params = {"job__ci_dataset": "cfht",
                   "metric": metric,
                   "page": "last"}
@@ -71,7 +72,7 @@ def server(run_standalone=False):
                 url = uiuri + "/metrics"
                 url += "?window=weeks&job__ci_dataset=cfht"
                 url += "&metric=" + metric
-                retval["url"] = url
+                # retval["url"] = url  # Drop it for now.  Fix for real next.
             return jsonify(retval)
         else:
             raise BackendError(reason=resp.reason,
