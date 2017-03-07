@@ -55,8 +55,8 @@ def server(run_standalone=False):
             raise BackendError(reason="Unauthorized", status_code=403,
                                content="No authorization provided.")
         session = app.config["SESSION"]
-        #url = hosturi + "/dashboard/api/measurements/"
-        url = hosturi + "/dashboard/regression/"
+        url = hosturi + "/dashboard/api/measurements/"
+        #url = hosturi + "/dashboard/regression/"
         params = {"job__ci_dataset": "cfht",
                   "metric": metric,
                   "page": "last"}
