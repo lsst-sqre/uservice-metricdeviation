@@ -18,4 +18,6 @@ spec:
             -
               containerPort: 5000
               name: u-metricdev
-              
+          env:
+            - name: LOGLEVEL
+              value: INFO
