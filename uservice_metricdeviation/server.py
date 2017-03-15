@@ -6,6 +6,8 @@ from apikit import BackendError
 from flask import jsonify, request
 from BitlyOAuth2ProxySession import Session
 
+log = None
+
 
 def server(run_standalone=False):
     """Create the app and then run it."""
@@ -22,6 +24,8 @@ def server(run_standalone=False):
                     "data": {"username": "",
                              "password": "",
                              "endpoint": hosturi + "/oauth2/start"}})
+    global log
+    log = app.config["LOGGER"]
     app.config["SESSION"] = None
 
     # Linter can't understand decorators.
@@ -60,11 +64,14 @@ def server(run_standalone=False):
         params = {"job__ci_dataset": "cfht",
                   "metric": metric,
                   "page": "last"}
+        log.info("Retrieving metric %s from URL %s" % (params["metric"], url))
         resp = session.get(url, params=params)
         if resp.status_code == 403:
             # Try to reauth
             _reauth(app, inboundauth.username, inboundauth.password)
             session = app.config["SESSION"]
+            log.info("Retrying metric %s from URL %s" %
+                     (params["metric"], url))
             resp = session.get(url, params)
         if resp.status_code == 200:
             retval = _interpret_response(resp.text, threshold)
@@ -83,7 +90,9 @@ def server(run_standalone=False):
     # pylint: disable=unused-variable
     def handle_invalid_usage(error):
         """Custom error handler."""
-        response = jsonify(error.to_dict())
+        errdict = error.to_dict()
+        log.error(errdict)
+        response = jsonify(errdict)
         response.status_code = error.status_code
         return response
     if run_standalone:
@@ -100,6 +109,10 @@ def _reauth(app, username, password):
                               authentication_session_url=None,
                               authentication_base_url=oaep)
     session.authenticate()
+    global log
+    # Update log with username
+    log = log.bind(username=username)
+    log.info("Reauthenticated with username %s" % username)
     app.config["SESSION"] = session
 
 
