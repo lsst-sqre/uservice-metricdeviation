@@ -9,7 +9,7 @@ DESCRIPTION = 'Minimal SQuaRE API wrapper for QA metrics'
 AUTHOR = 'Adam Thornton'
 AUTHOR_EMAIL = 'athornton@lsst.org'
 URL = 'https://github.com/lsst-sqre/sqre-uservice-metricdeviation'
-VERSION = '0.0.7'
+VERSION = '0.0.8'
 LICENSE = 'MIT'
 
 
@@ -41,8 +41,8 @@ setup(
     keywords='lsst',
     packages=find_packages(exclude=['docs', 'tests*']),
     install_requires=[
-        'bitly-oauth2-proxy-session==0.1.4',
-        'sqre-apikit==0.0.10',
+        'bitly-oauth2-proxy-session==0.1.5',
+        'sqre-apikit==0.1.1',
         'uWSGI==2.0.14'
     ],
     tests_require=['pytest'],
