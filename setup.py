@@ -10,6 +10,7 @@ AUTHOR = 'Adam Thornton'
 AUTHOR_EMAIL = 'athornton@lsst.org'
 URL = 'https://github.com/lsst-sqre/sqre-uservice-metricdeviation'
 VERSION = '0.0.9'
+
 LICENSE = 'MIT'
 
 

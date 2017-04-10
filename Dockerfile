@@ -14,6 +14,7 @@ RUN        mkdir /dist
 
 # Must run python setup.py sdist first.
 ARG        VERSION="0.0.9"
+
 LABEL      version="$VERSION"
 COPY       dist/sqre-uservice-metricdeviation-$VERSION.tar.gz /dist
 RUN        pip install /dist/sqre-uservice-metricdeviation-$VERSION.tar.gz
