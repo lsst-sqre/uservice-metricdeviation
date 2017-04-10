@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """Retrieve QA metrics and report deviation"""
 import json
+import os
 from apikit import APIFlask as apf
 from apikit import BackendError
 from flask import jsonify, request
@@ -12,10 +13,11 @@ log = None
 def server(run_standalone=False):
     """Create the app and then run it."""
     # Add "/metric_deviation" for mapping behind api.lsst.codes
-    hosturi = "https://squash.lsst.codes"
-    uiuri = hosturi
+    squashhost = os.getenv("SQUASH_HOST", "squash.lsst.codes")
+    hosturi = "https://" + squashhost
+    dataset = os.getenv("SQUASH_DATASET", "cfht")
     app = apf(name="uservice-metricdeviation",
-              version="0.0.8",
+              version="0.0.9",
               repository="https://github.com/sqre-lsst/" +
               "sqre-uservice-metricdeviation",
               description="API wrapper for QA Metric Deviation",
@@ -60,26 +62,66 @@ def server(run_standalone=False):
                                content="No authorization provided.")
         session = app.config["SESSION"]
         url = hosturi + "/dashboard/api/measurements/"
-        #url = hosturi + "/dashboard/regression/"
-        params = {"job__ci_dataset": "cfht",
+        params = {"job__ci_dataset": dataset,
                   "metric": metric,
                   "page": "last"}
-        log.info("Retrieving metric %s from URL %s" % (params["metric"], url))
+        log.info("Retrieving metric %s from URL %s" % (metric, url))
         resp = session.get(url, params=params)
         if resp.status_code == 403:
             # Try to reauth
             _reauth(app, inboundauth.username, inboundauth.password)
             session = app.config["SESSION"]
-            log.info("Retrying metric %s from URL %s" %
-                     (params["metric"], url))
+            log.info("Retrying metric %s from URL %s" % (metric, url))
             resp = session.get(url, params)
         if resp.status_code == 200:
             retval = _interpret_response(resp.text, threshold)
-            if retval["changed"]:
-                url = uiuri + "/metrics"
-                url += "?window=weeks&job__ci_dataset=cfht"
-                url += "&metric=" + metric
-                # retval["url"] = url  # Drop it for now.  Fix for real next.
+            # Get monitor URL
+            retval["graph"] = None
+            monep = hosturi + "/dashboard/api/metrics/" + metric
+            log.info("Retrieving monitor URL from %s" % monep)
+            resp = session.get(monep)
+            if resp.status_code == 403:
+                # Try to reauth
+                _reauth(app, inboundauth.username, inboundauth.password)
+                session = app.config["SESSION"]
+                log.info("Retrying %s" % monep)
+                resp = session.get(monep)
+            if resp.status_code == 200:
+                monurl = _interpret_monitor(resp.text)
+                if monurl:
+                    retval["graph"] = monurl
+            return jsonify(retval)
+        else:
+            raise BackendError(reason=resp.reason,
+                               status_code=resp.status_code,
+                               content=resp.text)
+
+    @app.route("/describemetrics")
+    @app.route("/metricdeviation/describemetrics")
+    def describemetrics():
+        """Describe each metric by name"""
+        metep = hosturi + "/dashboard/api/metrics"
+        inboundauth = None
+        if request.authorization is not None:
+            inboundauth = request.authorization
+            currentuser = app.config["AUTH"]["data"]["username"]
+            currentpw = app.config["AUTH"]["data"]["password"]
+            if currentuser != inboundauth.username or \
+               currentpw != inboundauth.password:
+                _reauth(app, inboundauth.username, inboundauth.password)
+        else:
+            raise BackendError(reason="Unauthorized", status_code=403,
+                               content="No authorization provided.")
+        session = app.config["SESSION"]
+        resp = session.get(metep)
+        if resp.status_code == 403:
+            # Try to reauth
+            _reauth(app, inboundauth.username, inboundauth.password)
+            session = app.config["SESSION"]
+            log.info("Retrying %s" % metep)
+            resp = session.get(metep)
+        if resp.status_code == 200:
+            retval = _describe_metrics(resp.text)
             return jsonify(retval)
         else:
             raise BackendError(reason=resp.reason,
@@ -131,6 +173,8 @@ def _interpret_response(inbound, threshold):
         raise BackendError(reason="Could not decode JSON result",
                            status_code=500,
                            content=str(exc) + ":\n" + inbound)
+    log.debug("Response was:")
+    log.debug(json.dumps(robj, sort_keys=True, indent=4))
     results = robj["results"]
     retdict = {"changed": False}
     if len(results) < 2:
@@ -138,9 +182,9 @@ def _interpret_response(inbound, threshold):
         return retdict
     prev = results[-2]
     curr = results[-1]
-    units = ""
-    if "units" in curr:
-        units = curr["units"]
+    unit = ""
+    if "unit" in curr:
+        unit = curr["unit"]
     pval = prev["value"]
     pval = _round(pval, 3)
     cval = curr["value"]
@@ -154,17 +198,56 @@ def _interpret_response(inbound, threshold):
                 retdict["previous"] = pval
                 retdict["changecount"] = 0
                 retdict["delta_pct"] = delta_pct
-                retdict["units"] = units
+                retdict["units"] = unit
                 ccp = curr["changed_packages"]
                 if ccp:
                     retdict["changed_packages"] = ccp
                     retdict["changecount"] = len(ccp)
+                # Fetch monitor URL
     return retdict
+
+
+def _interpret_monitor(inbound):
+    """Attempt to get graph URL"""
+    url = None
+    try:
+        robj = json.loads(inbound)
+    except json.decoder.JSONDecodeError as exc:
+        raise BackendError(reason="Could not decode JSON result",
+                           status_code=500,
+                           content=str(exc) + ":\n" + inbound)
+    log.debug("Response was:")
+    log.debug(json.dumps(robj, sort_keys=True, indent=4))
+    if "links" in robj and "monitor-url" in robj["links"]:
+        url = robj["links"]["monitor-url"]
+    return url
+
+
+def _describe_metrics(inbound):
+    """Build dict of metrics and descriptions"""
+    metrics = {}
+    try:
+        robj = json.loads(inbound)
+    except json.decoder.JSONDecodeError as exc:
+        raise BackendError(reason="Could not decode JSON result",
+                           status_code=500,
+                           content=str(exc) + ":\n" + inbound)
+    log.debug("Response was:")
+    log.debug(json.dumps(robj, sort_keys=True, indent=4))
+    if "results" in robj:
+        for res in robj["results"]:
+            if "metric" in res:
+                desc = ""
+                if "description" in res:
+                    desc = res["description"]
+                metrics[res["metric"]] = desc
+    return metrics
 
 
 def standalone():
     """Entry point for running as its own executable."""
     server(run_standalone=True)
+
 
 if __name__ == "__main__":
     standalone()
